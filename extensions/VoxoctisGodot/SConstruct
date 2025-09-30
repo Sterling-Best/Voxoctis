@@ -1,0 +1,93 @@
+# SConstruct (Windows/MSVC, Godot 4.5, link to prebuilt godot-cpp)
+import os
+from SCons.Script import ARGUMENTS, Environment, Glob, Dir, VariantDir
+
+env = Environment(tools=['msvc','default'], ENV=os.environ)
+
+# Triplet from CLI (defaults are fine)
+platform = ARGUMENTS.get('platform', 'windows')
+arch     = ARGUMENTS.get('arch',     'x86_64')
+target   = ARGUMENTS.get('target',   'template_debug')  # or template_release
+
+# Make these accessible via env[...] (fixes KeyError)
+env["platform"] = platform
+env["arch"]     = arch
+env["target"]   = target
+
+# Where you cloned & built godot-cpp (4.5 branch)
+THIS_DIR  = Dir('.').abspath
+GODOT_CPP = os.path.normpath(os.path.join(THIS_DIR, "../../external/godot-cpp"))
+
+# Include paths (order matters: gen/include before include)
+env.Append(CPPPATH=[
+    os.path.join(GODOT_CPP, "gen", "include"),
+    os.path.join(GODOT_CPP, "include"),
+    os.path.join(GODOT_CPP, "gdextension"),
+    "src",
+])
+
+# Defines/flags for MSVC + GDExtension
+env.Append(CPPDEFINES=["GDEXTENSION_LIBRARY", "NOMINMAX", "TYPED_METHOD_BIND"])
+env.Append(CXXFLAGS=["/std:c++17", "/EHsc", "/Zc:__cplusplus", "/utf-8"])
+
+# Link against the exact prebuilt .lib
+env.Append(LIBPATH=[os.path.join(GODOT_CPP, "bin")])
+env.Append(LIBS=[env.File(os.path.join(
+    GODOT_CPP, "bin", f"libgodot-cpp.{platform}.{target}.{arch}.lib"
+))])
+
+# Mirror source tree into ./build (no file copies)
+VariantDir("build", "src", duplicate=0)
+
+# ---- Generate in-editor docs into build/gen (keeps src/ clean)
+DOC_OUT = os.path.join("build", "gen", "doc_data.gen.cpp")
+if env["target"] in ("editor", "template_debug"):
+    xmls = Glob("doc_classes/*.xml")
+    if xmls:
+        os.makedirs(os.path.dirname(DOC_OUT), exist_ok=True)
+        try:
+            # This builder exists only if your env has GodotCPPDocData registered.
+            doc_cpp = env.GodotCPPDocData(DOC_OUT, source=xmls)
+            sources.append(doc_cpp)  # we already compile from build/*, so it will be built
+        except AttributeError:
+            print("GodotCPPDocData builder not available; skipping docs.")
+
+# Compile the mirrored sources (this makes .obj end up in ./build)
+sources = Glob("build/*.cpp") + Glob("build/*/*.cpp")
+
+# --- Output names ---
+outdir  = os.path.join("bin", env["platform"])
+os.makedirs(outdir, exist_ok=True)
+
+# Build the actual DLL with a plain logical name; SCons will append ".dll".
+dll = env.SharedLibrary(
+    target=os.path.join(outdir, "VoxoctisGodot"),
+    source=sources,
+)
+
+# Copy/rename for Godot
+suffix = ".debug" if target in ("template_debug", "debug") else ".release"
+dll_dst = os.path.join(outdir, f"VoxoctisGodot{suffix}.dll")
+import_lib_dst = os.path.join(outdir, f"VoxoctisGodot{suffix}.lib")
+
+dll_inst       = env.InstallAs(dll_dst,        dll[0])
+importlib_inst = env.InstallAs(import_lib_dst, dll[1])
+
+# --- Package as a Godot addon in ./dist/addons/voxoctis ---
+pkg_root = os.path.join("dist", "addons", "voxoctis")
+pkg_bin  = os.path.join(pkg_root, "bin", env["platform"])
+os.makedirs(pkg_bin, exist_ok=True)
+
+# Copy DLL/.lib into the package too (with suffix .debug/.release)
+pkg_dll = env.InstallAs(os.path.join(pkg_bin, f"VoxoctisGodot{suffix}.dll"), dll[0])
+pkg_lib = env.InstallAs(os.path.join(pkg_bin, f"VoxoctisGodot{suffix}.lib"), dll[1])
+
+# Copy C# wrappers
+cs_files = Glob("csharp/*.cs")
+cs_inst  = env.Install(pkg_root, cs_files)
+
+# Copy the .gdextension manifest
+man_inst = env.InstallAs(os.path.join(pkg_root, "VoxoctisGodot.gdextension"), "VoxoctisGodot.gdextension")
+
+# Make packaging part of the default build
+Default(dll_inst, importlib_inst, pkg_dll, pkg_lib, cs_inst, man_inst)
