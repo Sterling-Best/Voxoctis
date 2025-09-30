@@ -1,0 +1,60 @@
+# ----- Project-wide build artifacts 
+**/bin/
+**/build/
+**/dist/
+
+# Whitelist Builds
+!extensions/VoxoctisGodot/dist/addons/**
+
+# ----- External toolchains / SDKs
+external/godot-cpp/
+# Whitelist Docs and Other exception in External
+!external/.gitkeep
+!external/README.md
+
+# ----- Godot
+.import/
+.godot/
+*.translation
+# Keep this ignored if you don't want export settings in VCS.
+#export_presets.cfg
+
+# ----- C/C++ / MSVC outputs
+*.dll
+*.lib
+*.exp
+*.pdb
+*.obj
+*.exe
+*.ilk
+*.iobj
+*.ipdb
+*.tlog
+
+# ----- SCons
+**/.sconsign.dblite
+.sconf_temp/
+
+# ----- CMake (if used in core)
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake-build-*/
+**/compile_commands.json
+
+# ----- Python (SCons helpers, scripts)
+**/__pycache__/
+**/*.pyc
+.venv/
+
+# ----- VS / VSCodium
+.vs/
+.vscode/
+.vscode-oss/
+
+# ----- OS junk
+Thumbs.db
+.DS_Store
+
+# ----- Logs / temp
+*.log
+*.tmp
