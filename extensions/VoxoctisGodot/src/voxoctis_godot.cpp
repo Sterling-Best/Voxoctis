@@ -1,4 +1,4 @@
-#include "voxoctis_godot.h"
+#include "voxoctis/godot/voxoctis_godot.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
