@@ -6,8 +6,11 @@
 # Whitelist Builds
 !extensions/VoxoctisGodot/dist/addons/**
 
-# ----- External toolchains / SDKs
-external/godot-cpp/
+# Ignore everything under external …
+/external/*
+
+# …except the submodule we want to track
+!/external/godot-cpp
 # Whitelist Docs and Other exception in External
 !external/.gitkeep
 !external/README.md
@@ -17,7 +20,7 @@ external/godot-cpp/
 .godot/
 *.translation
 # Keep this ignored if you don't want export settings in VCS.
-#export_presets.cfg
+# export_presets.cfg
 
 # ----- C/C++ / MSVC outputs
 *.dll
